@@ -1,18 +1,26 @@
-
+import numpy as np
+import pytest
 from fastapi.testclient import TestClient
-from api import app
 from unittest.mock import patch, MagicMock
 
-client = TestClient(app)
+# Import the api module to patch it
+import api
+
 
 def test_health():
-    # Mock artifacts to simulate loaded state
-    with patch('api.ARTIFACTS', {"model": "loaded"}):
+    """Test health endpoint with mocked artifacts"""
+    # Mock artifacts before creating client
+    mock_artifacts = {"model": "loaded"}
+    
+    with patch.object(api, 'ARTIFACTS', mock_artifacts):
+        client = TestClient(api.app)
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json() == {"status": "healthy"}
 
+
 def test_predict_endpoint():
+    """Test predict endpoint with fully mocked artifacts"""
     import numpy as np
     
     # Mock artifacts and model prediction
@@ -33,21 +41,29 @@ def test_predict_endpoint():
         "feature_names": ['Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age']
     }
 
-    with patch.dict('api.ARTIFACTS', artifacts, clear=True):
-        payload = {
-            "Glucose": 100,
-            "BMI": 30,
-            "DiabetesPedigreeFunction": 0.5,
-            "BloodPressure": 80,
-            "SkinThickness": 20,
-            "Insulin": 100,
-            "Age": 40,
-            "Pregnancies": 1
-        }
-        response = client.post("/predict", json=payload)
-        if response.status_code != 200:
-            print(f"Response status: {response.status_code}")
-            print(f"Response body: {response.json()}")
-        assert response.status_code == 200
-        assert response.json()["risk_category"] == 1
-        assert abs(response.json()["risk_probability"] - 0.8) < 0.001
+    # Patch ARTIFACTS and prevent load_artifacts from running
+    with patch.object(api, 'ARTIFACTS', artifacts):
+        with patch.object(api, 'load_artifacts'):
+            client = TestClient(api.app)
+            
+            payload = {
+                "Glucose": 100,
+                "BMI": 30,
+                "DiabetesPedigreeFunction": 0.5,
+                "BloodPressure": 80,
+                "SkinThickness": 20,
+                "Insulin": 100,
+                "Age": 40,
+                "Pregnancies": 1
+            }
+            response = client.post("/predict", json=payload)
+            
+            # Debug output if test fails
+            if response.status_code != 200:
+                print(f"Response status: {response.status_code}")
+                print(f"Response body: {response.text}")
+            
+            assert response.status_code == 200
+            result = response.json()
+            assert result["risk_category"] == 1
+            assert abs(result["risk_probability"] - 0.8) < 0.001

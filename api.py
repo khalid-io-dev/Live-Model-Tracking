@@ -20,27 +20,27 @@ ARTIFACTS = {}
 def load_artifacts():
     global ARTIFACTS
     try:
-        # Set MLflow tracking URI
-        mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
-        mlflow.set_tracking_uri(mlflow_uri)
-
-        # Try to load from MLflow Model Registry first (Production stage)
-        model_name = "diabetes_risk_model"
-        try:
-            print(f"Attempting to load model from MLflow Registry: {model_name}/Production")
-            model_uri = f"models:/{model_name}/Production"
-            ARTIFACTS["model"] = mlflow.sklearn.load_model(model_uri)
-            print(f"Model loaded from MLflow Registry (Production stage)")
-        except Exception as mlflow_error:
-            print(f"Could not load from MLflow Registry: {mlflow_error}")
-            print("Falling back to local pickle files...")
-            ARTIFACTS["model"] = joblib.load("final_model.pkl")
-
-        # Load preprocessing artifacts (always from local files)
+        # Load from local pickle files first (faster, no network dependency)
+        print("Loading artifacts from local files...")
+        ARTIFACTS["model"] = joblib.load("final_model.pkl")
         ARTIFACTS["imputer"] = joblib.load("imputer.pkl")
         ARTIFACTS["scaler"] = joblib.load("scaler.pkl")
         ARTIFACTS["feature_names"] = joblib.load("feature_names.pkl")
-        print("All artifacts loaded successfully.")
+        print("All artifacts loaded successfully from local files.")
+        
+        # Optionally try MLflow if MLFLOW_TRACKING_URI is explicitly set
+        mlflow_uri = os.getenv("MLFLOW_TRACKING_URI")
+        if mlflow_uri and mlflow_uri != "http://mlflow:5000":
+            try:
+                print(f"Attempting to load model from MLflow Registry...")
+                mlflow.set_tracking_uri(mlflow_uri)
+                model_name = "diabetes_risk_model"
+                model_uri = f"models:/{model_name}/Production"
+                ARTIFACTS["model"] = mlflow.sklearn.load_model(model_uri)
+                print(f"Model loaded from MLflow Registry (Production stage)")
+            except Exception as mlflow_error:
+                print(f"Could not load from MLflow Registry: {mlflow_error}")
+                print("Using local pickle files instead.")
     except Exception as e:
         print(f"Error loading artifacts: {e}")
         ARTIFACTS = {}
