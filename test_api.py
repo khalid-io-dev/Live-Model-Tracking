@@ -28,7 +28,7 @@ def test_predict_endpoint():
         "model": mock_model,
         "imputer": mock_imputer,
         "scaler": mock_scaler,
-        "feature_names": ['Glucose', 'BMI', 'DiabetesPedigreeFunction', 'BloodPressure', 'SkinThickness', 'Insulin', 'Age', 'Pregnancies']
+        "feature_names": ['Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 'Insulin', 'BMI', 'DiabetesPedigreeFunction', 'Age']
     }
 
     with patch('api.ARTIFACTS', artifacts):
