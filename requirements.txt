@@ -19,3 +19,4 @@ black
 flake8
 pylint
 requests
+httpx
