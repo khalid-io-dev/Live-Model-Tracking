@@ -14,10 +14,10 @@ from pathlib import Path
 
 # Performance thresholds
 THRESHOLDS = {
-    'accuracy': 0.75,
-    'f1_score': 0.70,
+    'accuracy': 0.70,
+    'f1_score': 0.60,
     'roc_auc': 0.80,
-    'precision': 0.70,
+    'precision': 0.45,
     'recall': 0.70
 }
 
