@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import mlflow
 import mlflow.sklearn
+from mlflow.tracking import MlflowClient
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
@@ -12,6 +13,11 @@ from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, classificat
 from imblearn.over_sampling import RandomOverSampler
 import joblib
 import os
+
+# Configure MLflow to use local directory with relative paths
+# This ensures compatibility across Windows, Linux, and Mac
+mlflow.set_tracking_uri("file:./mlruns")
+os.makedirs("mlruns", exist_ok=True)
 
 # Set MLflow experiment
 mlflow.set_experiment("Diabetes_Risk_Prediction")
@@ -138,23 +144,60 @@ def train_model():
         mlflow.log_metric("f1_score", f1)
         mlflow.log_metric("roc_auc", roc_auc)
         
-        # Log Model
-        mlflow.sklearn.log_model(clf, "model")
-        
-        # Save Artifacts locally
-        print("Saving artifacts...")
+        # Save Artifacts locally first
+        print("Saving artifacts locally...")
         joblib.dump(clf, "final_model.pkl")
         joblib.dump(imputer, "imputer.pkl")
         joblib.dump(scaler, "scaler.pkl")
         joblib.dump(feature_cols, "feature_names.pkl")
-        
+
         # Log Artifacts to MLflow
         mlflow.log_artifact("final_model.pkl")
         mlflow.log_artifact("imputer.pkl")
         mlflow.log_artifact("scaler.pkl")
         mlflow.log_artifact("feature_names.pkl")
-        
+
+        # Register Model in Model Registry
+        print("Registering model in MLflow Model Registry...")
+        model_name = "diabetes_risk_model"
+        mlflow.sklearn.log_model(
+            clf,
+            "model",
+            registered_model_name=model_name
+        )
+
+        # Get the run ID and register version
+        run_id = run.info.run_id
+        client = MlflowClient()
+
+        # Get the latest version
+        latest_versions = client.get_latest_versions(model_name, stages=["None"])
+        if latest_versions:
+            latest_version = latest_versions[0].version
+            print(f"Model registered as version {latest_version}")
+
+            # Promote to Staging if metrics are good
+            if roc_auc > 0.85:  # Threshold for staging
+                client.transition_model_version_stage(
+                    name=model_name,
+                    version=latest_version,
+                    stage="Staging"
+                )
+                print(f"Model version {latest_version} promoted to Staging")
+
+                # Promote to Production if metrics are excellent
+                if roc_auc > 0.90:
+                    client.transition_model_version_stage(
+                        name=model_name,
+                        version=latest_version,
+                        stage="Production",
+                        archive_existing_versions=True  # Archive previous production versions
+                    )
+                    print(f"Model version {latest_version} promoted to Production")
+
         print("Training complete. Run tracked in MLflow.")
+        print(f"Run ID: {run_id}")
+        print(f"Model Name: {model_name}")
 
 if __name__ == "__main__":
     train_model()

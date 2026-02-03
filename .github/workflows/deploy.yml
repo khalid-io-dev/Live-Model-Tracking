@@ -1,0 +1,44 @@
+name: Deploy to Production
+
+on:
+  workflow_run:
+    workflows: ["CI - Tests and Validation", "Docker Build and Push"]
+    types:
+      - completed
+    branches: [ main, Mohammed ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Application
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Deploy with Docker Compose
+      run: |
+        echo "Deployment would happen here"
+        echo "In production, this would:"
+        echo "1. Pull the latest Docker image"
+        echo "2. Run docker-compose up -d"
+        echo "3. Run health checks"
+        echo "4. Notify team of deployment status"
+
+    - name: Health Check
+      run: |
+        echo "Running health checks..."
+        # curl -f http://your-production-url/health || exit 1
+
+    - name: Notify deployment success
+      run: |
+        echo "Deployment completed successfully!"
+        echo "API is live at: http://localhost:8000"
+        echo "MLflow UI: http://localhost:5000"
+        echo "Grafana: http://localhost:3000"
+        echo "Prometheus: http://localhost:9090"

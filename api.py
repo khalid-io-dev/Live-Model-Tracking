@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 from prometheus_fastapi_instrumentator import Instrumentator
 import os
+import mlflow
+import mlflow.pyfunc
 
 app = FastAPI(title="Diabetes Risk Prediction API")
 
@@ -18,11 +20,27 @@ ARTIFACTS = {}
 def load_artifacts():
     global ARTIFACTS
     try:
-        ARTIFACTS["model"] = joblib.load("final_model.pkl")
+        # Set MLflow tracking URI
+        mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+        mlflow.set_tracking_uri(mlflow_uri)
+
+        # Try to load from MLflow Model Registry first (Production stage)
+        model_name = "diabetes_risk_model"
+        try:
+            print(f"Attempting to load model from MLflow Registry: {model_name}/Production")
+            model_uri = f"models:/{model_name}/Production"
+            ARTIFACTS["model"] = mlflow.sklearn.load_model(model_uri)
+            print(f"Model loaded from MLflow Registry (Production stage)")
+        except Exception as mlflow_error:
+            print(f"Could not load from MLflow Registry: {mlflow_error}")
+            print("Falling back to local pickle files...")
+            ARTIFACTS["model"] = joblib.load("final_model.pkl")
+
+        # Load preprocessing artifacts (always from local files)
         ARTIFACTS["imputer"] = joblib.load("imputer.pkl")
         ARTIFACTS["scaler"] = joblib.load("scaler.pkl")
         ARTIFACTS["feature_names"] = joblib.load("feature_names.pkl")
-        print("Artifacts loaded successfully.")
+        print("All artifacts loaded successfully.")
     except Exception as e:
         print(f"Error loading artifacts: {e}")
         ARTIFACTS = {}
